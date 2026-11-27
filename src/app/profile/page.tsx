@@ -593,6 +593,7 @@ export default function ProfilePage() {
   const [wishlist, setWishlist] = useState<GameData[]>([]);
   const [finished, setFinished] = useState<GameData[]>([]);
   const [platinated, setPlatinated] = useState<GameData[]>([]);
+  const reactivatingGames = useRef(new Set<string>());
 
   useEffect(() => {
     const init = async () => {
@@ -643,10 +644,28 @@ export default function ProfilePage() {
   };
 
   const handleUnfinishGame = async (game: GameData) => {
+    const gameKey = game.rawg_id ? `rawg:${game.rawg_id}` : `id:${game.id}`;
+    if (reactivatingGames.current.has(gameKey)) return;
+
+    const isAlreadyPlaying = playing.some(
+      (entry) =>
+        entry.id === game.id ||
+        (game.rawg_id && entry.rawg_id === game.rawg_id),
+    );
+    if (isAlreadyPlaying) {
+      toast({
+        title: "Jogo já está em Jogando Agora",
+        description: `${game.name} permanece em "Finalizados".`,
+      });
+      return;
+    }
+
+    reactivatingGames.current.add(gameKey);
     setFinished((prev) => prev.filter((g) => g.id !== game.id));
     setPlaying((prev) => [...prev, { ...game, status: "playing" }]);
 
     const result = await updateGameStatus(game.id, "playing");
+    reactivatingGames.current.delete(gameKey);
     if (result.success) {
       toast({
         title: "Jogo reativado! 🎮",
